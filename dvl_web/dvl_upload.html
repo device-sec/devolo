@@ -1,0 +1,177 @@
+<html>
+<head></head>
+<body>
+<script>
+/* src: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/sendAsBinary */
+if (!XMLHttpRequest.prototype.sendAsBinary) {
+	XMLHttpRequest.prototype.sendAsBinary = function (sData) {
+		var nBytes = sData.length, ui8Data = new Uint8Array(nBytes);
+		for (var nIdx = 0; nIdx < nBytes; nIdx++) {
+			ui8Data[nIdx] = sData.charCodeAt(nIdx) & 0xff;
+		}
+		/* send as ArrayBufferView...: */
+		this.send(ui8Data);
+		/* ...or as ArrayBuffer (legacy)...: this.send(ui8Data.buffer); */
+	};
+}
+
+
+function get_boundery()
+{
+	return '--------a1d0c6e83f027327d8461063f4ac58a6';
+}
+
+
+function add(fieldname, value)
+{
+	var part = "";
+	part += "--" + get_boundery() + '\r\n';
+	part += 'Content-Disposition: form-data; name="' + fieldname + '"\r\n\r\n';
+	part += value + '\r\n';
+	return part;
+}
+
+
+
+function addFile(fieldname, data, filename)
+{
+	var part = "";
+	part += "--" + get_boundery() + '\r\n';
+	part += 'Content-Disposition: form-data; name="' + fieldname + '"; filename="'+ filename +'"\r\n';
+	part += 'Content-Type: application/octet-stream\r\n\r\n';
+	part += data + '\r\n';
+	return part;
+}
+
+
+function closeMessage()
+{
+	return "--" + get_boundery() + '--\r\n';
+}
+
+
+function readData()
+{
+	var textarea = document.getElementById("config_b64");
+	return window.atob(textarea.value);
+}
+
+
+function checkIP(ip)
+{
+	let res = ip.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+	if(res)
+	{
+		for(let i = 1; i <= 4; i++)
+		{
+			let val = parseInt(res[i], 10);
+			if(val > 255)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
+
+
+function uploadData()
+{
+
+	let ip = document.getElementById("input_ip").value;
+	if(!checkIP(ip))
+	{
+		alert("invalid ip: " + ip);
+		return;
+	}
+	var xhr = new XMLHttpRequest;
+	xhr.open("POST", "http://" + ip + "/cgi-bin/htmlmgr", true);
+	xhr.onreadystatechange = function()
+	{
+		if (xhr.readyState === 4)
+		{
+			var iframe = document.getElementById("outputframe");
+			iframe.contentWindow.document.open("text/htmlreplace");
+			iframe.contentWindow.document.write(xhr.responseText);
+			iframe.contentWindow.document.close();
+		}
+	};
+	xhr.onerror = function(e) {
+		alert("An error has occurred! Reasons for this message:\n"
+			+ "1. Upload complete and we violated the SOP\n"
+			+ "2. Webinterface is password protected\n"
+			+ "3. No device at this IP\n"
+		);
+	};
+
+	var iframe = document.getElementById("outputframe");
+	iframe.contentWindow.document.open("text/htmlreplace");
+	iframe.contentWindow.document.write("");
+	iframe.contentWindow.document.close();
+	xhr.setRequestHeader("Content-Type", "multipart/form-data; boundary=" + get_boundery());
+	var request = "";
+	request += add("_file", "/wgl/main.wgl");
+	request += add("_style", "std");
+	request += add("_lang", "");
+	request += add("_dir", "spec");
+	request += add("_page", "result");
+	request += add("_plain", "1");
+	request += add("_sid", "");
+	request += add("_csrf", "");
+	request += add("_type", "update");
+	request += addFile("upload", readData(), "config.crypt");
+	if(document.getElementById("radio_data").checked)
+	{
+		request += add(":sys:System.ConfigRestoreCrypt", "/tmp/upload.bin");
+	}
+	else if(document.getElementById("radio_fw").checked)
+	{
+		request += add(":sys:System.FirmwareUpgrade", "/tmp/upload.bin");
+	}
+
+	request += closeMessage();
+	xhr.sendAsBinary(request);
+}
+</script>
+
+
+<table width="99%">
+<tr><td>
+
+BASE64 encoded data:<br>
+<textarea rows="40" cols="90" id="config_b64"></textarea>
+<table>
+	<tr>
+		<td>device IP:</td>
+		<td><input type="text" id="input_ip"></td>
+	</tr>
+	<tr>
+		<td>Datatype:</td>
+		<td align="center">
+			<label>
+				<input type="radio" id="radio_data" name="uploadtype" checked>
+				Config
+			</label>
+			<label>
+				<input type="radio" id="radio_fw" name="uploadtype">
+				Firmware
+			</label>
+		</td>
+	</tr>
+	<tr>
+		<td colspan="2" align="center">
+			<input type="button" onclick="uploadData();" value="upload data">
+		</td>
+	</tr>
+</table>
+
+</td><td>
+Response of the device (only visible, if we are not violating the SOP):<br>
+<iframe id="outputframe" width="800" height="600" sandbox="allow-scripts allow-same-origin" />
+
+</td></tr></table>
+
+</body>
+</html>

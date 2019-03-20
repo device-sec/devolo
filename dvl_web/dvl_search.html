@@ -1,0 +1,256 @@
+<html>
+<head>
+</head>
+<body>
+
+
+
+<script>
+
+
+
+var currnum = 0;
+var endnum = 0;
+var port = 22879;
+var done = false;
+
+
+function createInput(type, name, value)
+{
+	let input = document.createElement("input");
+	input.setAttribute("type", type);
+	if(name)
+	{
+		input.setAttribute("name", name);
+	}
+	input.setAttribute("value", value);
+	return input;
+}
+
+
+
+function createForm(ip, targetframe, target, key, value, btnname)
+{
+        let form = document.createElement("form");
+        form.setAttribute("method", "POST");
+        form.setAttribute("action", "http://" + ip + ":22879");
+        form.setAttribute("target", targetframe);
+        form.append(createInput("hidden", "version", "1"));
+        form.append(createInput("hidden", "type", "sync"));
+        form.append(createInput("hidden", "target", target));
+        form.append(createInput("hidden", "key", key));
+        form.append(createInput("hidden", "value", value));
+        let btn = createInput("button", null, btnname);
+        btn.setAttribute("onclick", "this.parentElement.submit();");
+	form.append(btn);
+	let td = document.createElement("td");
+	td.append(form);
+	return td;
+}
+	
+
+
+function deviceFound(ip)
+{
+	let targetframe = "iframe_" + ip.replace(".", "_");
+	let tr = document.createElement("tr");
+	let td = document.createElement("td");
+	td.textContent = "DHCI at " + ip;
+	tr.append(td);
+
+	let btn = createInput("button", null, "show webinterface");
+	btn.setAttribute("onclick", "document.getElementById('" + targetframe + "').src = 'http://" + ip + "';");
+	let form = document.createElement("form");
+	form.append(btn);	// dummy alignment issue ...
+	td = document.createElement("td");
+	td.append(form);
+	tr.append(td);
+
+	tr.append(createForm(ip, targetframe, "System", "Reboot", "1", "reboot"));
+	tr.append(createForm(ip, targetframe, "System", "Baptization.Telnetd", "1", "enable telnet"));
+
+	let iframe = document.createElement("iframe");
+	iframe.setAttribute("name", targetframe);
+	iframe.setAttribute("id", targetframe);
+	td = document.createElement("td");
+	td.append(iframe);
+	tr.append(td);
+
+	let table = document.getElementById("detecteddevices");
+	table.append(tr);
+	iframe.src = "http://" + ip;
+}
+
+
+
+function addr2num(addr)
+{
+	let res = addr.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+	if(res)
+	{
+		let addr = 0;
+		for(let i = 1; i <= 4; i++)
+		{
+			let val = parseInt(res[i], 10);
+			if(val > 255)
+			{
+				return null;
+			}
+			addr <<= 8;
+			addr |= val;
+		}
+		return addr;
+	}
+	else
+	{
+		return null;
+	}
+}
+
+
+function num2addr(num)
+{
+	let addr = "." + (num & 255);
+	num >>= 8;
+	addr = "." + (num & 255) + addr;
+	num >>= 8;
+	addr = "." + (num & 255) + addr;
+	num >>= 8;
+	addr = (num & 255) + addr;
+	return addr;
+}
+
+
+function getNextIP()
+{
+	if(currnum > endnum)
+	{
+		done = true;
+		return null;
+	}
+	let addr = num2addr(currnum);
+	currnum++;
+	return addr;
+}
+
+
+function open_port(ip)
+{
+	deviceFound(ip);
+}
+
+
+function closed_port(ip)
+{
+	var div=document.getElementById("closedports");
+	div.innerHTML=div.innerHTML + ip + ":" + port + "<br>";
+}
+
+
+function timeout_port(ip)
+{
+	var div=document.getElementById("lastchecked");
+	if(done)
+	{
+		div.innerHTML="done";
+	}
+	else
+	{
+		div.innerHTML=ip + ":" + port;
+	}
+}
+
+
+
+function checknext(iframe)
+{
+	var ip = getNextIP();
+	if(ip)
+	{
+		var mytimeout;
+		iframe.onerror = function ()
+		{
+			if (!iframe) return;
+			clearTimeout(mytimeout);
+			checknext(iframe);
+			closed_port(ip);
+		}
+		iframe.onload = function ()
+		{
+			if (!iframe) return;
+			clearTimeout(mytimeout);
+			checknext(iframe);
+			open_port(ip);
+		}
+		iframe.src = 'http://' + ip + ':' + port;
+		mytimeout = setTimeout(function ()
+		{
+				if (!iframe) return;
+				checknext(iframe);
+				timeout_port(ip);
+		}, 250);
+	}
+}
+
+
+function getIframe()
+{
+	var iframe = document.createElement("iframe");
+	var style = document.createAttribute("style");
+	style.value = "display:none;";
+	iframe.setAttributeNode(style);
+	document.body.appendChild(iframe);
+	return iframe;	
+}
+
+
+function startscan()
+{
+	let curraddr = document.getElementById("startaddr").value;
+	currnum = addr2num(curraddr);
+	let endaddr = document.getElementById("endaddr").value;
+	endnum = addr2num(endaddr);
+	if(!currnum)
+	{
+		alert("startaddr is not a valid ip");
+	} else if(!endnum)
+	{
+		alert("endaddr is not a valid ip");
+	} else if(currnum > endnum)
+	{
+		alert(" startaddr > endaddr!");
+	} else
+	{
+		for(let i=0; i < 20; i++)
+		{
+			iframe = getIframe();
+			checknext(iframe);
+		}
+	}
+}
+
+</script>
+
+
+<table>
+	<tr>
+		<td>closed:</td><td id="closedports"></td>
+	</tr>
+	<tr>
+		<td>curr addr:</td><td id="lastchecked"></td>
+	</tr>
+	<tr>
+		<td>Startaddr:</td>
+		<td><input type="text" id="startaddr" value="192.168.0.1"></td>
+	</tr>
+	<tr>
+		<td>Endaddr:</td>
+		<td><input type="text" id="endaddr" value="192.168.254.254"></td>
+	</tr>
+</table>
+
+<input type="button" onclick="startscan();"  value="scan!">
+
+<table id="detecteddevices" />
+</body>
+</html>
