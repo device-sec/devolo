@@ -31,7 +31,7 @@ All vulnerabilities have been responsibly disclosed to vendor:
 In February 2019 a scan revealed 1,991 vulnerable devices across
 Europe that are publically exposed to the Internet.
 
-<img src="https://dev.sec.tu-bs.de/devolo/europe.svg" width="400">
+<img src="https://intellisec.org/research/devolo/europe.svg" width="400">
 
 ## Code
 
@@ -48,13 +48,13 @@ web-based attacks.
 ### Install
 
 ```
-git clone https://github.com/device-sec/devolo.git
+git clone https://github.com/intellisec/devolo.git
 devolo/dvl_urlencode.py --help
 ```
 
 ## Publication
 
-A detailed description of our work is going to be presented at the
+A detailed description of our work has been presented at the
 12th ACM European Workshop on Systems Security (EuroSec 2019) in
 March 2019. If you would like to cite our work, please use the reference
 as provided below.
@@ -71,4 +71,4 @@ as provided below.
 }
 ```
 
-A preprint of the paper is available [here](https://dev.sec.tu-bs.de/devolo/2019-eurosec.pdf).
+A preprint of the paper is available [here](https://intellisec.org/research/devolo/2019-eurosec.pdf).
